@@ -4352,5 +4352,36 @@ async function checkTelegramWebhook() {
     if (!remote || remote.error || !remote.products) return;
 
     // KV 데이터가 localStorage보다 최신이면 업데이트
-    const localSavedAt = data._savedAt || 0;
-    const remoteSavedAt = remote.
+    const remoteSavedAt = remote._savedAt || 0;
+    if (remoteSavedAt > localSavedAt || !localSavedAt) {
+      data = migrate(remote);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      currentCat = data.categories[0]?.id || 'hot';
+      applyHeader();
+      renderCategories();
+      renderProducts();
+      renderSidebarBundleBtn();
+    }
+  } catch(_) {
+    // 네트워크 오류는 조용히 무시 (오프라인 환경 대응)
+  }
+})();
+
+// 초기 렌더링
+applyHeader();
+renderCategories();
+renderProducts();
+renderSidebarBundleBtn();
+updateCartUI();
+
+// ── 관리자 세션 복구 & URL 파라미터 처리 ──
+if (sessionStorage.getItem('pharm_admin_session') === '1') {
+  // 새로고침해도 관리자 모드 유지
+  enterAdmin();
+} else if (_adminUrlMode) {
+  // ?mode=admin 또는 #admin → PIN 입력창 자동 오픈
+  openAdminLogin();
+}
+</script>
+</body>
+</html>
