@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>로컬 창고약국 - 디지털 가이드</title>
+<title>약국 - 디지털 가이드</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- QR 코드 생성용 라이브러리 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -117,7 +117,7 @@
       <div id="logo" class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg cursor-pointer select-none"
            style="background: var(--brand);">℞</div>
       <div>
-        <div id="header-name" class="text-base sm:text-lg font-bold leading-tight">로컬 창고약국</div>
+        <div id="header-name" class="text-base sm:text-lg font-bold leading-tight">약국</div>
         <div id="header-tagline" class="text-xs text-slate-500 leading-tight">대기 중에 약사님이 큐레이션한 제품을 둘러보세요</div>
       </div>
     </div>
@@ -1151,7 +1151,7 @@
 const DEFAULT_DATA = {
   bundles: [],
   settings: {
-    pharmacyName: '로컬 창고약국',
+    pharmacyName: '약국',
     tagline: '대기 중에 약사님이 큐레이션한 제품을 둘러보세요',
     adminPin: '1234',
     allowDelivery: false,
@@ -1241,7 +1241,7 @@ const DEFAULT_DATA = {
   ],
 };
 
-const STORAGE_KEY = 'pharm_warehouse_data_v1';
+const STORAGE_KEY = 'pharm_warehouse_data_v1_shop2'; // 1호점과 localStorage 분리
 
 /* 데이터 로드/저장 */
 function loadData() {
@@ -1301,7 +1301,7 @@ function showToast(msg) {
    사용자 화면 렌더링
    =========================================== */
 function applyHeader() {
-  const name = data.settings.pharmacyName || '로컬 창고약국';
+  const name = data.settings.pharmacyName || '약국';
   $('#header-name').textContent = name;
   $('#header-tagline').textContent = data.settings.tagline || '';
   // 브라우저 탭 제목 + 인쇄 헤더에도 반영
@@ -1701,7 +1701,7 @@ async function sendTelegramAlert(order) {
     return line;
   }).join('\n');
 
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국';
+  const pharmName = data.settings.pharmacyName || '약국';
   const text =
     `🔔 새 주문 접수! [${pharmName}]\n\n` +
     `🎫 접수번호: ${order.customerName}\n` +
@@ -3188,7 +3188,7 @@ function playBeep() {
 
 /* ── 주문서 HTML 생성 (buildReceiptHTML) ── */
 function buildReceiptHTML(order) {
-  const pharmName  = data.settings.pharmacyName  || '로컬 창고약국';
+  const pharmName  = data.settings.pharmacyName  || '약국';
   const pharmPhone = data.settings.pharmacyPhone || '';
   const now = new Date(order.timestamp || Date.now());
   const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
@@ -3239,7 +3239,7 @@ function autoPrintOrder(order) {
   _lastPrintedOrder = order;
   $('#print-receipt').innerHTML = buildReceiptHTML(order);
   $('#print-content').textContent = '';
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국';
+  const pharmName = data.settings.pharmacyName || '약국';
   document.title = pharmName + ' 주문서';
   window.print();
   setTimeout(() => { document.title = pharmName + ' - 디지털 가이드'; }, 1000);
@@ -3248,7 +3248,7 @@ function autoPrintOrder(order) {
 /* ── 자동 인쇄 — 텍스트 폴백 (SSE/원격 주문 수신 시) ── */
 function autoPrint(text) {
   $('#print-receipt').innerHTML = '';
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국';
+  const pharmName = data.settings.pharmacyName || '약국';
   const bar = '━'.repeat(32);
   const pad = (s) => s.padStart(Math.floor((32 + s.length) / 2)).padEnd(32);
   const header = `${bar}\n${pad(pharmName)}\n${bar}\n`;
@@ -4353,28 +4353,4 @@ async function checkTelegramWebhook() {
 
     // KV 데이터가 localStorage보다 최신이면 업데이트
     const localSavedAt = data._savedAt || 0;
-    const remoteSavedAt = remote._savedAt || 0;
-    if (remoteSavedAt > localSavedAt || !localSavedAt) {
-      data = migrate(remote);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      currentCat = data.categories[0]?.id || 'hot';
-      applyHeader();
-      renderCategories();
-      renderProducts();
-      renderSidebarBundleBtn();
-    }
-  } catch(_) {
-    // 네트워크 오류는 조용히 무시 (오프라인 환경 대응)
-  }
-})();
-
-// 초기 렌더링
-applyHeader();
-renderCategories();
-renderProducts();
-renderSidebarBundleBtn();
-updateCartUI();
-
-// ── 관리자 세션 복구 & URL 파라미터 처리 ──
-if (sessionStorage.getItem('pharm_admin_session') === '1') {
-  // 새
+    const remoteSavedAt = remote.
