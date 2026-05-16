@@ -1118,6 +1118,13 @@
       <button onclick="closeProductEditor()" class="btn-secondary">취소</button>
       <button onclick="saveProduct()" class="btn-primary">저장</button>
     </div>
+    <div class="mt-2">
+      <button onclick="shareToBoard()" id="share-to-board-btn"
+        class="w-full py-2 rounded-xl text-sm font-bold border-2 border-teal-400 text-teal-700 bg-teal-50 hover:bg-teal-100 transition-all">
+        📤 약품 공유 게시판에 공유하기
+      </button>
+      <div id="share-to-board-status" class="text-xs text-center mt-1 text-slate-400 hidden"></div>
+    </div>
   </div>
 </div>
 
@@ -2062,6 +2069,7 @@ function enterAdmin() {
   document.body.style.overflow = 'hidden';
   startOrderListener();       // 실시간 수신 시작
   fetchMissedOrders();        // 오프라인 동안 받은 주문 조회
+  checkBoardImportParam();    // 게시판 가져오기 파라미터 확인
 }
 function exitAdmin() {
   isAdmin = false;
@@ -2705,6 +2713,139 @@ function saveProduct() {
     data.products.push(Object.assign({ id: 'p_' + Date.now().toString(36) }, obj));
   }
   saveData(); closeProductEditor(); renderAdminProducts();
+}
+
+/* ─── 게시판 → 키오스크 가져오기 ─── */
+function importFromBoard(drugData) {
+  if (!drugData || !drugData.name) { showToast('❌ 가져올 약품 데이터가 없습니다.'); return; }
+  if (data.categories.length === 0) { alert('먼저 분류를 1개 이상 만들어주세요'); return; }
+
+  $('#prod-editor-title').textContent = '게시판에서 가져오기 📥';
+  $('#prod-edit-id').value    = '';
+  $('#prod-edit-emoji').value = drugData.emoji || '💊';
+  const sel = $('#prod-edit-cat');
+  sel.innerHTML = data.categories.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+  const matchedCat = data.categories.find(c => c.name === drugData.cat || c.id === drugData.cat);
+  sel.value = matchedCat?.id || data.categories[0].id;
+
+  $('#prod-edit-name').value    = drugData.name || '';
+  $('#prod-edit-tagline').value = drugData.tagline || '';
+  $('#prod-edit-price').value   = drugData.price || '';
+  $('#prod-edit-list').value    = drugData.list  || '';
+  $('#prod-edit-stock').value   = '';
+  $('#prod-edit-badges').value  = '';
+  $('#prod-edit-note').value    = drugData.pharmacistNote || '';
+  $('#prod-edit-info').value    = drugData.info || '';
+  $('#prod-edit-price-hidden').checked = false;
+  $('#prod-edit-hidden').checked       = false;
+  $('#prod-edit-image').value   = drugData.imageUrl || '';
+  $('#barcode-input').value     = '';
+  $('#drug-name-input').value   = '';
+  $('#barcode-status').textContent = '';
+  $('#drug-search-results').classList.add('hidden');
+  updateImgPreview();
+  $('#prod-editor-overlay').classList.remove('hidden');
+  showToast('📥 게시판에서 가져왔습니다! 가격을 입력하고 저장하세요.');
+}
+
+function checkBoardImportParam() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('importDrug');
+    if (!raw) return;
+    history.replaceState(null, '', location.pathname + (location.hash || ''));
+    const json = JSON.parse(decodeURIComponent(atob(raw)));
+    if (json?.source === '약품공유게시판' && json?.drug) {
+      setTimeout(() => importFromBoard(json.drug), 400);
+    }
+  } catch(e) {}
+}
+
+/* ─── 약품 공유 게시판 공유 ─── */
+const _BOARD_URL  = 'https://cnpaelquawzpywtdpmkw.supabase.co';
+const _BOARD_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNucGFlbHF1YXd6cHl3dGRwbWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDUyNjgsImV4cCI6MjA5NDIyMTI2OH0.GVFXD4aiMRiLHD-BiRgLrirg3VrdXgEj4AKLyk0Tgo4';
+
+async function shareToBoard() {
+  const btn    = $('#share-to-board-btn');
+  const status = $('#share-to-board-status');
+  const name   = $('#prod-edit-name').value.trim();
+  const tagline = $('#prod-edit-tagline') ? $('#prod-edit-tagline').value.trim() : '';
+  const info    = $('#prod-edit-info') ? $('#prod-edit-info').value.trim() : '';
+  const note    = $('#prod-edit-note') ? $('#prod-edit-note').value.trim() : '';
+  const emoji   = $('#prod-edit-emoji') ? $('#prod-edit-emoji').value.trim() : '💊';
+  const imageUrl = $('#prod-edit-image') ? $('#prod-edit-image').value.trim() : '';
+
+  if (!name) { alert('제품명을 먼저 입력해주세요.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '📤 공유 중...';
+  status.classList.remove('hidden');
+  status.textContent = '게시판에 약품 정보를 전송하는 중...';
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': _BOARD_ANON,
+      'Authorization': 'Bearer ' + _BOARD_ANON,
+      'Prefer': 'return=representation',
+    };
+
+    // 1. drugs 테이블에 약품 마스터 INSERT (중복 시 기존 id 사용)
+    const drugRes = await fetch(_BOARD_URL + '/rest/v1/drugs', {
+      method: 'POST',
+      headers: Object.assign({}, headers, { 'Prefer': 'return=representation,resolution=merge-duplicates' }),
+      body: JSON.stringify({
+        canonical_name:   name,
+        manufacturer_name: data.settings?.shopName || '2호점',
+        category:          '기타',
+        func_tags:         [],
+        emoji:             emoji || '💊',
+      }),
+    });
+    if (!drugRes.ok) {
+      const err = await drugRes.text();
+      throw new Error('약품 등록 실패: ' + err);
+    }
+    const drugData = await drugRes.json();
+    const drugId = Array.isArray(drugData) ? drugData[0]?.id : drugData?.id;
+    if (!drugId) throw new Error('약품 ID를 받지 못했습니다.');
+
+    status.textContent = '버전(설명) 정보 등록 중...';
+
+    // 2. drug_versions 테이블에 버전 INSERT
+    const verRes = await fetch(_BOARD_URL + '/rest/v1/drug_versions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        drug_id:         drugId,
+        user_id:         null,
+        pharmacy_name:   data.settings?.shopName || '2호점',
+        efficacy:        tagline || '효능 정보 없음',
+        dosage:          info    || '용법 정보 없음',
+        pharmacist_note: note    || null,
+        image_url:       imageUrl || null,
+      }),
+    });
+    if (!verRes.ok) {
+      const err = await verRes.text();
+      throw new Error('버전 등록 실패: ' + err);
+    }
+
+    btn.textContent = '✅ 공유 완료!';
+    btn.className = 'w-full py-2 rounded-xl text-sm font-bold border-2 border-green-400 text-green-700 bg-green-50 transition-all';
+    status.textContent = '게시판에서 확인하세요 → real0741-web.github.io/pharmacy-board/';
+    showToast('📤 게시판 공유 완료! "' + name + '"');
+    setTimeout(() => {
+      btn.textContent = '📤 약품 공유 게시판에 공유하기';
+      btn.className = 'w-full py-2 rounded-xl text-sm font-bold border-2 border-teal-400 text-teal-700 bg-teal-50 hover:bg-teal-100 transition-all';
+      status.classList.add('hidden');
+      btn.disabled = false;
+    }, 5000);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '📤 약품 공유 게시판에 공유하기';
+    status.textContent = '❌ ' + e.message;
+    showToast('❌ 공유 실패: ' + e.message);
+  }
 }
 
 /* ─── QR 코드 관리 (마법사 UI) ─── */
