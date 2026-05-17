@@ -1633,6 +1633,7 @@ function startOrder() {
   const cBtn = $('#counter-select-btn');
   if (cBtn) cBtn.style.background = '';
 
+  _applyDeliveryVisibility();
   $('#payment-modal-overlay').classList.remove('hidden');
 }
 
