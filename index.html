@@ -4487,39 +4487,32 @@ async function _applyRemoteData(showToastMsg) {
     } catch(_) {}
   }, 60000); // 1분
 })();
-(async function autoSyncOnLoad() {
+// ── 앱 초기화: 서버 데이터 우선 로드 후 렌더링 ──
+(async function initApp() {
+  // 1) localStorage 데이터로 즉시 렌더 (빈 화면 방지)
+  applyHeader(); renderCategories(); renderProducts();
+  renderSidebarBundleBtn(); updateCartUI();
+
+  // 2) 서버에서 항상 최신 데이터를 받아 덮어쓰기
   try {
     const res = await fetch(`${PROXY}/?action=getData`, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return;
-    const remote = await res.json();
-    if (!remote || remote.error || !remote.products) return;
-
-    // KV 데이터가 localStorage보다 최신이면 업데이트
-    const localSavedAt  = data._savedAt || 0;
-    const remoteSavedAt = remote._savedAt || 0;
-    if (remoteSavedAt > localSavedAt || !localSavedAt) {
-      data = migrate(remote);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      currentCat = data.categories[0]?.id || 'hot';
-      applyHeader();
-      renderCategories();
-      renderProducts();
-      renderSidebarBundleBtn();
+    if (res.ok) {
+      const remote = await res.json();
+      if (remote && !remote.error && remote.products?.length) {
+        data = migrate(remote);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        currentCat = data.categories[0]?.id || 'hot';
+        applyHeader(); renderCategories(); renderProducts();
+        renderSidebarBundleBtn(); updateCartUI();
+      }
     }
   } catch(_) {
-    // 네트워크 오류는 조용히 무시 (오프라인 환경 대응)
+    // 네트워크 오류 → localStorage 데이터 유지
   }
 })();
-
-// 초기 렌더링
-applyHeader();
-renderCategories();
-renderProducts();
-renderSidebarBundleBtn();
-updateCartUI();
 
 // ── 관리자 세션 복구 & URL 파라미터 처리 ──
 if (sessionStorage.getItem('pharm_admin_session') === '1') {
