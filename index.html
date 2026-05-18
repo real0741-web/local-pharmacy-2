@@ -4498,6 +4498,7 @@ async function _applyRemoteData(showToastMsg) {
     if (!remote || remote.error || !remote.products) return;
 
     // KV 데이터가 localStorage보다 최신이면 업데이트
+    const localSavedAt  = data._savedAt || 0;
     const remoteSavedAt = remote._savedAt || 0;
     if (remoteSavedAt > localSavedAt || !localSavedAt) {
       data = migrate(remote);
