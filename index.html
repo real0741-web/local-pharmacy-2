@@ -749,6 +749,10 @@
               <input type="radio" name="crawl-mode" value="screenshot" onchange="onCrawlModeChange()" class="accent-teal-600" />
               <span class="text-sm font-semibold">📸 스크린샷 분석</span>
             </label>
+            <label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 cursor-pointer has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+              <input type="radio" name="crawl-mode" value="paste" onchange="onCrawlModeChange()" class="accent-teal-600" />
+              <span class="text-sm font-semibold">📋 텍스트 붙여넣기</span>
+            </label>
           </div>
         </div>
 
@@ -781,6 +785,26 @@
           <div id="crawl-screenshot-preview" class="hidden mt-2">
             <img id="crawl-screenshot-img" src="" alt="미리보기" class="max-h-48 rounded-xl border border-slate-200 object-contain" />
           </div>
+        </div>
+
+        <!-- 텍스트 붙여넣기 영역 -->
+        <div id="crawl-paste-area" class="hidden">
+          <div class="p-3 rounded-xl bg-blue-50 border border-blue-100 text-sm text-blue-800 mb-3">
+            <b>SPA·로그인 필요 사이트 전용</b><br/>
+            브라우저에서 제품 목록 페이지를 열고<br/>
+            <b>Ctrl+A → Ctrl+C</b> 로 전체 텍스트를 복사한 뒤 아래에 붙여넣기하세요.
+          </div>
+          <div class="field">
+            <label>출처 사이트명 (선택)</label>
+            <input id="crawl-paste-source" type="text" placeholder="예: 앨리스랩, 아워팜" />
+          </div>
+          <div class="field">
+            <label>복사한 텍스트 붙여넣기 <span class="text-red-400">*</span></label>
+            <textarea id="crawl-paste-text" rows="8"
+              placeholder="제품 목록 페이지에서 Ctrl+A → Ctrl+C 후 여기에 Ctrl+V..."
+              class="font-mono text-xs"></textarea>
+          </div>
+          <div id="crawl-paste-charcount" class="text-xs text-slate-400 -mt-2 mb-1 text-right"></div>
         </div>
 
         <button onclick="startKioskCrawl()" class="btn-primary w-full py-3 text-base">
@@ -4549,8 +4573,15 @@ function crawlMapCat(boardCat) {
 
 function onCrawlModeChange() {
   const mode = document.querySelector('input[name="crawl-mode"]:checked')?.value;
-  $('#crawl-url-area').classList.toggle('hidden', mode === 'screenshot');
+  $('#crawl-url-area').classList.toggle('hidden',        mode !== 'url');
   $('#crawl-screenshot-area').classList.toggle('hidden', mode !== 'screenshot');
+  $('#crawl-paste-area').classList.toggle('hidden',      mode !== 'paste');
+  // 텍스트 붙여넣기: 글자 수 카운터
+  if (mode === 'paste') {
+    const ta = $('#crawl-paste-text');
+    const cnt = $('#crawl-paste-charcount');
+    ta.oninput = () => { cnt.textContent = ta.value.length.toLocaleString() + '자'; };
+  }
 }
 
 function onCrawlScreenshotSelected(e) {
@@ -4576,6 +4607,28 @@ async function startKioskCrawl() {
   const mode = document.querySelector('input[name="crawl-mode"]:checked')?.value || 'url';
   $('#crawl-results-wrap').classList.add('hidden');
   _crawlDrugs = [];
+
+  if (mode === 'paste') {
+    const text = ($('#crawl-paste-text')?.value || '').trim();
+    const sourceName = ($('#crawl-paste-source')?.value || '').trim();
+    if (text.length < 30) { showToast('텍스트를 붙여넣기 해주세요 (Ctrl+A → Ctrl+C → Ctrl+V)'); return; }
+    _crawlSetStatus('텍스트 AI 분석 중…', true);
+    try {
+      const resp = await fetch(PROXY + '/?action=extractDrugsFromText', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, sourceName }),
+        signal: AbortSignal.timeout(45000),
+      });
+      const json = await resp.json();
+      if (json.error || !json.drugs?.length) throw new Error(json.error || '약품을 찾지 못했습니다');
+      _crawlSetStatus(`✅ ${json.drugs.length}개 추출 완료`);
+      renderCrawlResults(json.drugs, json.pageTitle || sourceName || '텍스트 분석');
+    } catch(e) {
+      _crawlSetStatus('❌ ' + e.message);
+    }
+    return;
+  }
 
   if (mode === 'screenshot') {
     const file = $('#crawl-screenshot-input')?.files?.[0];
