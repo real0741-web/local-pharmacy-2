@@ -1229,6 +1229,10 @@
       </div>
     </div>
     <div class="field">
+      <label>🏷️ 소분류 (같은 이름끼리 묶어서 소제목 표시)</label>
+      <input id="prod-edit-group" type="text" placeholder="예: 종합감기약, 콧물·알러지, 액상감기약" />
+    </div>
+    <div class="field">
       <label>💊 복약지도 (접수증·주문서에 자동 표시)</label>
       <textarea id="prod-edit-note" rows="2" placeholder="예: 식후 30분 복용. 1일 1정. 임산부 복용 전 상담 필요."></textarea>
     </div>
@@ -1572,7 +1576,57 @@ function renderProducts() {
 }
 
 function renderProductCards(list, grid) {
-  list.forEach(p => {
+  // 소분류(group)가 있는 제품은 같은 group끼리 묶어 소제목 표시
+  // group 없는 제품은 맨 뒤에 배치 (순서 유지)
+  const withGroup    = list.filter(p => p.group);
+  const withoutGroup = list.filter(p => !p.group);
+
+  // group별로 순서 보존하며 묶기
+  const groupOrder = [];
+  const groupMap   = {};
+  withGroup.forEach(p => {
+    if (!groupMap[p.group]) { groupMap[p.group] = []; groupOrder.push(p.group); }
+    groupMap[p.group].push(p);
+  });
+
+  // 소제목 + 제품카드 삽입
+  const renderGroup = (label) => {
+    const header = document.createElement('div');
+    header.className = 'col-span-full';
+    header.innerHTML = `<div style="
+      display:flex;align-items:center;gap:10px;
+      margin:12px 0 4px;padding:6px 10px;
+      background:var(--brand-soft);border-radius:10px;
+      font-size:13px;font-weight:700;color:var(--brand);
+      letter-spacing:0.01em;">
+      <span style="font-size:15px;">🏷️</span> ${label}
+    </div>`;
+    grid.appendChild(header);
+  };
+
+  groupOrder.forEach(label => {
+    renderGroup(label);
+    groupMap[label].forEach(p => appendProductCard(p, grid));
+  });
+
+  // 소분류 없는 제품은 구분 없이 이어서
+  if (withoutGroup.length && groupOrder.length) {
+    const header = document.createElement('div');
+    header.className = 'col-span-full';
+    header.innerHTML = `<div style="
+      display:flex;align-items:center;gap:10px;
+      margin:12px 0 4px;padding:6px 10px;
+      background:#f8fafc;border-radius:10px;border:1px dashed #e2e8f0;
+      font-size:13px;font-weight:600;color:#94a3b8;">
+      <span>📦</span> 기타
+    </div>`;
+    grid.appendChild(header);
+  }
+  withoutGroup.forEach(p => appendProductCard(p, grid));
+}
+
+/* 카드 수량 ± 버튼 */
+function appendProductCard(p, grid) {
     const discount = p.list ? Math.round((1 - p.price / p.list) * 100) : 0;
     const card = document.createElement('div');
     card.className = 'card overflow-hidden cursor-pointer';
@@ -1619,11 +1673,8 @@ function renderProductCards(list, grid) {
       </div>
     `;
     grid.appendChild(card);
-  });
 }
 
-/* 카트 */
-// 카드 수량 ± 버튼
 function adjCardQty(id, delta) {
   const el = $(`#cqty-${id}`);
   if (!el) return;
@@ -2778,6 +2829,7 @@ function openProductEditor(id) {
   $('#prod-edit-info').value     = editing?.info     || '';
   $('#prod-edit-price-hidden').checked = editing?.priceHidden || false;
   $('#prod-edit-hidden').checked       = editing?.hidden      || false;
+  $('#prod-edit-group').value    = editing?.group    || '';
   $('#prod-edit-image').value    = editing?.image    || '';
   $('#barcode-input').value      = '';
   $('#drug-name-input').value    = '';
@@ -2872,6 +2924,7 @@ function saveProduct() {
     info:          $('#prod-edit-info').value.trim(),
     priceHidden:   $('#prod-edit-price-hidden').checked,
     hidden:        $('#prod-edit-hidden').checked,
+    group:         $('#prod-edit-group').value.trim(),
     image:         $('#prod-edit-image').value || '',
   };
   if (id) {
