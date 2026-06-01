@@ -3229,14 +3229,14 @@ async function saveQRConfig() {
 
 // ─ QR URL 조합 헬퍼
 function _buildQRUrl(base, slotNum) {
-  // slotNum이 null/undefined이거나 _qrType이 single이면 순수 URL 반환
-  if (!slotNum || _qrType === 'single') return base;
+  // single 모드는 항상 ?qr=1 고정 (Worker에서 single=true면 무조건 통과)
+  const num = (_qrType === 'single') ? 1 : (slotNum || 1);
   try {
     const u = new URL(base);
-    u.searchParams.set('qr', String(slotNum));
+    u.searchParams.set('qr', String(num));
     return u.toString();
   } catch(_) {
-    return `${base}${base.includes('?') ? '&' : '?'}qr=${slotNum}`;
+    return `${base}${base.includes('?') ? '&' : '?'}qr=${num}`;
   }
 }
 
@@ -5225,6 +5225,11 @@ async function _applyRemoteData(showToastMsg, bgMode = false) {
 
   // 어떤 경우든 로딩 스크린 제거
   hideLoading();
+
+  // ── QR 유효성 검사 (로딩 완료 후 실행) ──
+  if (!isAdmin && !sessionStorage.getItem('pharm_admin_session')) {
+    checkQRValidity();
+  }
 })();
 
 // ── 관리자 세션 복구 & URL 파라미터 처리 ──
