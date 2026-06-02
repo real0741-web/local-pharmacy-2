@@ -3540,9 +3540,8 @@ function buildReceiptHTML(order) {
 
   const itemsHTML = order.items.map(i => {
     const lineTotal = fmt((i.price || 0) * (i.qty || 1));
-    return `<div style="margin-bottom:3px;">
+    return `<div style="margin-bottom:4px;word-break:keep-all;overflow-wrap:break-word;">
       · ${i.name} × ${i.qty}　(<strong>${lineTotal}</strong>)
-      ${i.note ? `<div style="font-style:italic;color:#555;font-size:11px;margin-left:8px;line-height:1.5;">${i.note}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -3669,7 +3668,7 @@ function _startSession() {
   renderProducts();
   clearTimeout(window._sessionExpireTimer);
   const limitMs = SESSION_MINUTES * 60 * 1000;
-  const sessionStart = parseInt(sessionStorage.getItem('pharm_session_ts') || String(Date.now()), 10);
+  const sessionStart = parseInt(localStorage.getItem('pharm_session_ts') || String(Date.now()), 10);
   const elapsed = Date.now() - sessionStart;
   const remaining = Math.max(0, limitMs - elapsed);
   window._sessionExpireTimer = setTimeout(() => _expireSession('expired'), remaining);
@@ -3690,8 +3689,8 @@ async function checkQRValidity() {
   }
 
   // 이미 이 QR로 유효한 세션이 있으면 재검증 없이 통과
-  const storedQR    = sessionStorage.getItem('pharm_qr_num');
-  const sessionStart = sessionStorage.getItem('pharm_session_ts');
+  const storedQR    = localStorage.getItem('pharm_qr_num');
+  const sessionStart = localStorage.getItem('pharm_session_ts');
   if (storedQR === String(qrNum) && sessionStart) {
     const ageMs   = Date.now() - parseInt(sessionStart, 10);
     const limitMs = SESSION_MINUTES * 60 * 1000;
@@ -3700,8 +3699,8 @@ async function checkQRValidity() {
       return;
     }
     // 세션 만료
-    sessionStorage.removeItem('pharm_qr_num');
-    sessionStorage.removeItem('pharm_session_ts');
+    localStorage.removeItem('pharm_qr_num');
+    localStorage.removeItem('pharm_session_ts');
     _expireSession('expired');
     return;
   }
@@ -3713,8 +3712,8 @@ async function checkQRValidity() {
     const { valid } = await res.json();
     if (valid) {
       // 새 세션 시작
-      sessionStorage.setItem('pharm_qr_num', String(qrNum));
-      sessionStorage.setItem('pharm_session_ts', String(Date.now()));
+      localStorage.setItem('pharm_qr_num', String(qrNum));
+      localStorage.setItem('pharm_session_ts', String(Date.now()));
       _startSession();
     } else {
       _expireSession('invalid_qr');
@@ -5197,66 +5196,3 @@ async function _applyRemoteData(showToastMsg, bgMode = false) {
       const { _savedAt } = await r.json();
       if (_savedAt && _savedAt > _lastVersion) {
         _lastVersion = _savedAt;
-        await _applyRemoteData(false, true); // bgMode=true: 백그라운드 저장만, 화면 유지
-      }
-    } catch(_) {}
-  }, 60000); // 1분
-})();
-// ── 앱 초기화: 첫 방문엔 로딩 스크린, 항상 서버 우선 ──
-(async function initApp() {
-  const loadingEl = document.getElementById('init-loading-screen');
-  const hasLocal  = !!(data.products?.length && data._savedAt);
-
-  function hideLoading() {
-    if (loadingEl) loadingEl.style.display = 'none';
-  }
-
-  // localStorage 데이터가 있으면 즉시 렌더 (로딩 스크린 숨김)
-  if (hasLocal) {
-    applyHeader(); renderCategories(); renderProducts();
-    renderSidebarBundleBtn(); updateCartUI();
-    hideLoading();
-  }
-  // 없으면 로딩 스크린 유지하며 서버 대기
-
-  // 서버에서 항상 최신 데이터 가져오기
-  try {
-    const res = await fetch(`${PROXY}/?action=getData`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10000),
-    });
-    if (res.ok) {
-      const remote = await res.json();
-      if (remote && !remote.error && remote.products?.length) {
-        // 서버에 데이터가 있으면 항상 적용 (고객 기기는 saveData를 호출하지 않음)
-        data = migrate(remote);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        currentCat = data.categories[0]?.id || 'hot';
-        applyHeader(); renderCategories(); renderProducts();
-        renderSidebarBundleBtn(); updateCartUI();
-      }
-    }
-  } catch(_) {
-    // 네트워크 실패 → localStorage 데이터로 계속
-  }
-
-  // 어떤 경우든 로딩 스크린 제거
-  hideLoading();
-
-  // ── QR 유효성 검사 (로딩 완료 후 실행) ──
-  if (!isAdmin && !sessionStorage.getItem('pharm_admin_session')) {
-    checkQRValidity();
-  }
-})();
-
-// ── 관리자 세션 복구 & URL 파라미터 처리 ──
-if (sessionStorage.getItem('pharm_admin_session') === '1') {
-  // 새로고침해도 관리자 모드 유지
-  enterAdmin();
-} else if (_adminUrlMode) {
-  // ?mode=admin 또는 #admin → PIN 입력창 자동 오픈
-  openAdminLogin();
-}
-</script>
-</body>
-</html>
