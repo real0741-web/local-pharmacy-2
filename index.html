@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>로컬 창고약국 2호점 - 디지털 가이드</title>
+<title>오더팜 - 디지털 가이드</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- QR 코드 생성용 라이브러리 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -138,7 +138,7 @@
       <div id="logo" class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg cursor-pointer select-none"
            style="background: var(--brand);">℞</div>
       <div>
-        <div id="header-name" class="text-base sm:text-lg font-bold leading-tight">로컬 창고약국 2호점</div>
+        <div id="header-name" class="text-base sm:text-lg font-bold leading-tight">오더팜</div>
         <div id="header-tagline" class="text-xs text-slate-500 leading-tight">대기 중에 약사님이 큐레이션한 제품을 둘러보세요</div>
       </div>
     </div>
@@ -1318,7 +1318,7 @@ if (!AbortSignal.timeout) {
 const DEFAULT_DATA = {
   bundles: [],
   settings: {
-    pharmacyName: '로컬 창고약국 2호점',
+    pharmacyName: '오더팜',
     tagline: '대기 중에 약사님이 큐레이션한 제품을 둘러보세요',
     adminPin: '1234',
     allowDelivery: false,
@@ -1468,7 +1468,7 @@ function showToast(msg) {
    사용자 화면 렌더링
    =========================================== */
 function applyHeader() {
-  const name = data.settings.pharmacyName || '로컬 창고약국 2호점';
+  const name = data.settings.pharmacyName || '오더팜';
   $('#header-name').textContent = name;
   $('#header-tagline').textContent = data.settings.tagline || '';
   // 브라우저 탭 제목 + 인쇄 헤더에도 반영
@@ -1931,7 +1931,7 @@ async function sendTelegramAlert(order) {
     return line;
   }).join('\n');
 
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
+  const pharmName = data.settings.pharmacyName || '오더팜';
   const text =
     `🔔 새 주문 접수! [${pharmName}]\n\n` +
     `🎫 접수번호: ${order.customerName}\n` +
@@ -3064,9 +3064,34 @@ let _qrType = '';  // 'single' | 'rotation'
 // QR 탭 열릴 때 호출
 function setQRDefault() {
   const baseEl = $('#qr-base-url');
+  const savedUrl = localStorage.getItem('pharm_qr_base_url_' + SHOP_ID);
   if (baseEl && !baseEl.value) {
-    baseEl.value = location.protocol === 'file:' ? '' : (location.origin + location.pathname);
+    baseEl.value = savedUrl || (location.protocol === 'file:' ? '' : (location.origin + location.pathname));
   }
+  _autoLoadQRConfig();
+}
+
+async function _autoLoadQRConfig() {
+  try {
+    const res = await fetch(`${PROXY}/?action=getQRConfig&shopId=${SHOP_ID}`);
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (!cfg || cfg.error) return;
+    _qrConfig = cfg;
+
+    const savedUrl = localStorage.getItem('pharm_qr_base_url_' + SHOP_ID);
+    const baseEl   = $('#qr-base-url');
+    if (savedUrl && baseEl && !baseEl.value) baseEl.value = savedUrl;
+
+    if (cfg.mode === 'single') {
+      setQRType('single');
+    } else {
+      setQRType('rotation');
+      setQRModeUI(cfg.mode || 'auto');
+      if (cfg.mode === 'manual') selectManualQR(cfg.activeQR || 1);
+    }
+    if (baseEl?.value) generateAllQRs();
+  } catch(_) {}
 }
 
 // ─ STEP 1: 운영 방식 선택
@@ -3297,6 +3322,7 @@ function generateAllQRs() {
     grid.innerHTML = `<div class="text-sm text-slate-400 col-span-full py-6 text-center">URL을 먼저 입력해주세요</div>`;
     return;
   }
+  localStorage.setItem('pharm_qr_base_url_' + SHOP_ID, base);
 
   grid.innerHTML = '';
   Object.keys(_qrUrls).forEach(k => delete _qrUrls[k]);
@@ -3611,7 +3637,7 @@ function autoPrintOrder(order) {
 
 function autoPrint(text) {
   $('#print-receipt').innerHTML = '';
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
+  const pharmName = data.settings.pharmacyName || '오더팜';
   const bar = '━'.repeat(32);
   const pad = (s) => s.padStart(Math.floor((32 + s.length) / 2)).padEnd(32);
   const header = `${bar}\n${pad(pharmName)}\n${bar}\n`;
@@ -3620,7 +3646,7 @@ function autoPrint(text) {
 
 /* ── 수동 인쇄 (재인쇄 버튼 클릭 시만 호출) ── */
 function doPrint() {
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
+  const pharmName = data.settings.pharmacyName || '오더팜';
   document.title = pharmName + ' 주문서';
   window.print();
   setTimeout(() => { document.title = pharmName + ' - 디지털 가이드'; }, 1000);
@@ -5174,18 +5200,4 @@ async function _applyRemoteData(showToastMsg, bgMode = false) {
       return true;
     }
     return false;
-  } catch(_) { return false; }
-}
-
-/* 1분마다 버전 체크 → 변경 시에만 전체 로드 */
-(function startVersionPolling() {
-  let _lastVersion = data._savedAt || 0;
-  setInterval(async () => {
-    try {
-      const r = await fetch(`${PROXY}/?action=getVersion`, {
-        cache: 'no-store', signal: AbortSignal.timeout(5000),
-      });
-      if (!r.ok) return;
-      const { _savedAt } = await r.json();
-      if (_savedAt && _savedAt > _lastVersion) {
-        _lastVersion = _savedAt;
+  }
