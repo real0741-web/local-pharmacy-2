@@ -1302,6 +1302,15 @@
 </style>
 
 <script>
+/* iOS Safari 15 이하 AbortSignal.timeout 폴리필 */
+if (!AbortSignal.timeout) {
+  AbortSignal.timeout = function(ms) {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(new DOMException('TimeoutError','TimeoutError')), ms);
+    return ctrl.signal;
+  };
+}
+
 /* ===========================================
    기본 데이터 (DEFAULT)
    - localStorage에 저장된 게 없으면 이걸로 시작
@@ -3499,6 +3508,7 @@ function printMissedOrder(idx) {
   const panel = $('#missed-orders-panel');
   if (!panel._orders) return;
   autoPrint(panel._orders[idx].text);
+  doPrint();
 }
 
 function dismissMissedOrder(btn) {
@@ -3591,19 +3601,14 @@ function buildReceiptHTML(order) {
   </div>`;
 }
 
-/* ── 자동 인쇄 — 구조화된 주문 객체 (로컬 주문 즉시 출력) ── */
+/* ── 주문서 데이터 준비 (인쇄 내용 세팅만, window.print 호출 안 함) ── */
 let _lastPrintedOrder = null;
 function autoPrintOrder(order) {
   _lastPrintedOrder = order;
   $('#print-receipt').innerHTML = buildReceiptHTML(order);
   $('#print-content').textContent = '';
-  const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
-  document.title = pharmName + ' 주문서';
-  window.print();
-  setTimeout(() => { document.title = pharmName + ' - 디지털 가이드'; }, 1000);
 }
 
-/* ── 자동 인쇄 — 텍스트 폴백 (SSE/원격 주문 수신 시) ── */
 function autoPrint(text) {
   $('#print-receipt').innerHTML = '';
   const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
@@ -3611,19 +3616,24 @@ function autoPrint(text) {
   const pad = (s) => s.padStart(Math.floor((32 + s.length) / 2)).padEnd(32);
   const header = `${bar}\n${pad(pharmName)}\n${bar}\n`;
   $('#print-content').textContent = header + text;
+}
+
+/* ── 수동 인쇄 (재인쇄 버튼 클릭 시만 호출) ── */
+function doPrint() {
+  const pharmName = data.settings.pharmacyName || '로컬 창고약국 2호점';
   document.title = pharmName + ' 주문서';
   window.print();
   setTimeout(() => { document.title = pharmName + ' - 디지털 가이드'; }, 1000);
 }
 
-/* ── 실시간 주문 팝업 ── */
+/* ── 실시간 주문 팝업 (window.print 자동 호출 없음) ── */
 function showOrderAlert(text) {
   _currentOrderText = text;
   $('#order-alert-body').textContent = text;
   $('#order-alert-time').textContent = new Date().toLocaleTimeString('ko-KR');
   $('#order-alert-overlay').classList.remove('hidden');
   playBeep();
-  autoPrint(text); // 자동 인쇄
+  autoPrint(text); // 인쇄 내용 준비만 (자동 출력 없음 — notifier.py가 처리)
 }
 
 function closeOrderAlert() {
@@ -3632,8 +3642,8 @@ function closeOrderAlert() {
 }
 
 function reprintOrderAlert() {
-  if (_lastPrintedOrder) { autoPrintOrder(_lastPrintedOrder); return; }
-  if (_currentOrderText) autoPrint(_currentOrderText);
+  if (_lastPrintedOrder) { autoPrintOrder(_lastPrintedOrder); doPrint(); return; }
+  if (_currentOrderText) { autoPrint(_currentOrderText); doPrint(); }
 }
 
 /* ─── 세션 기반 가격 공개 (QR 접속 후 1시간) ─── */
