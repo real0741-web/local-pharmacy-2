@@ -5096,7 +5096,8 @@ function importData(e) {
 async function syncFromRemote() {
   showToast('☁️ 원격에서 불러오는 중...');
   try {
-    const res = await fetch(`${PROXY}/?action=getData`, { cache: 'no-store' });
+    const res = await fetch(`${PROXY}/?action=getData`, {
+      });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const remote = await res.json();
     if (!remote || remote.error) throw new Error('서버에 저장된 데이터가 없습니다');
@@ -5180,7 +5181,6 @@ function _applyPending() {
 async function _applyRemoteData(showToastMsg, bgMode = false) {
   try {
     const res = await fetch(`${PROXY}/?action=getData`, {
-      cache: 'no-store',
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return false;
@@ -5197,10 +5197,4 @@ async function _applyRemoteData(showToastMsg, bgMode = false) {
         data = newData;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         currentCat = data.categories[0]?.id || 'hot';
-        applyHeader(); renderCategories(); renderProducts(); renderSidebarBundleBtn();
-        if (showToastMsg) showToast('🔄 최신 데이터로 업데이트됐어요');
-      }
-      return true;
-    }
-    return false;
-  }
+        applyHeader(); renderCategories(); renderProduct
