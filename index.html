@@ -5197,4 +5197,90 @@ async function _applyRemoteData(showToastMsg, bgMode = false) {
         data = newData;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         currentCat = data.categories[0]?.id || 'hot';
-        applyHeader(); renderCategories(); renderProduct
+        applyHeader(); renderCategories(); renderProducts();
+        renderSidebarBundleBtn(); updateCartUI();
+      }
+    }
+    if (showToastMsg) showToast('🔄 최신 데이터로 업데이트됐어요');
+    return true;
+  } catch(_) { return false; }
+}
+
+
+/* 1분마다 버전 체크 → 변경 시에만 전체 로드 */
+(function startVersionPolling() {
+  let _lastVersion = data._savedAt || 0;
+  setInterval(async () => {
+    try {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch(`${PROXY}/?action=getVersion&shopId=${SHOP_ID}`, {
+        mode: 'cors', credentials: 'omit', signal: ctrl.signal,
+      });
+      clearTimeout(tid);
+      if (!r.ok) return;
+      const { _savedAt } = await r.json();
+      if (_savedAt && _savedAt > _lastVersion) {
+        _lastVersion = _savedAt;
+        if (!isAdmin) {
+          // 새 버전 감지 → 캐시 우회 강제 새로고침 (URL에 버전 파라미터 추가)
+          const u = new URL(location.href);
+          u.searchParams.set('_v', _savedAt);
+          location.replace(u.toString());
+          return;
+        }
+        await _applyRemoteData(true);
+      }
+    } catch(_) {}
+  }, 60000); // 1분
+})();
+
+// ── 앱 초기화: 첫 방문엔 로딩 스크린, 항상 서버 우선 ──
+(async function initApp() {
+  const loadingEl = document.getElementById('init-loading-screen');
+
+  function hideLoading() {
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+
+  // 즉시 렌더 (localStorage or DEFAULT_DATA) — 아이폰도 바로 콘텐츠 표시
+  applyHeader(); renderCategories(); renderProducts();
+  renderSidebarBundleBtn(); updateCartUI();
+  hideLoading();
+
+  // QR 세션 즉시 검사 (서버 데이터 기다리지 않음)
+  if (!isAdmin) checkQRValidity();
+
+  // 서버에서 최신 데이터 백그라운드 업데이트
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 12000);
+    const res  = await fetch(`${PROXY}/?action=getData&shopId=${SHOP_ID}`, {
+      mode: 'cors', credentials: 'omit', signal: ctrl.signal,
+    });
+    clearTimeout(tid);
+    if (res.ok) {
+      const remote = await res.json();
+      if (remote && !remote.error && remote.products?.length) {
+        // 항상 서버 데이터 적용 (타임스탬프 비교 없음 — iOS 첫 방문 대응)
+        data = migrate(remote);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        currentCat = data.categories[0]?.id || 'hot';
+        applyHeader(); renderCategories(); renderProducts();
+        renderSidebarBundleBtn(); updateCartUI();
+      }
+    }
+  } catch(_) { /* 네트워크 실패 무시 — 이미 렌더됨 */ }
+})();
+
+// ── 관리자 세션 복구 & URL 파라미터 처리 ──
+if (sessionStorage.getItem('pharm_admin_session') === '1') {
+  // 새로고침해도 관리자 모드 유지
+  enterAdmin();
+} else if (_adminUrlMode) {
+  // ?mode=admin 또는 #admin → PIN 입력창 자동 오픈
+  openAdminLogin();
+}
+</script>
+</body>
+</html>
