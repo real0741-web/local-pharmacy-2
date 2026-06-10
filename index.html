@@ -1321,7 +1321,7 @@ if (!AbortSignal.timeout) {
 const DEFAULT_DATA = {
   bundles: [],
   settings: {
-    pharmacyName: '오더팜',
+    pharmacyName: '파랑새약국',
     tagline: '대기 중에 약사님이 큐레이션한 제품을 둘러보세요',
     adminPin: '1234',
     allowDelivery: false,
@@ -1471,7 +1471,7 @@ function showToast(msg) {
    사용자 화면 렌더링
    =========================================== */
 function applyHeader() {
-  const name = data.settings.pharmacyName || '오더팜';
+  const name = data.settings.pharmacyName || '파랑새약국';
   $('#header-name').textContent = name;
   $('#header-tagline').textContent = data.settings.tagline || '';
   // 브라우저 탭 제목 + 인쇄 헤더에도 반영
@@ -1934,7 +1934,7 @@ async function sendTelegramAlert(order) {
     return line;
   }).join('\n');
 
-  const pharmName = data.settings.pharmacyName || '오더팜';
+  const pharmName = data.settings.pharmacyName || '파랑새약국';
   const text =
     `🔔 새 주문 접수! [${pharmName}]\n\n` +
     `🎫 접수번호: ${order.customerName}\n` +
@@ -3640,7 +3640,7 @@ function autoPrintOrder(order) {
 
 function autoPrint(text) {
   $('#print-receipt').innerHTML = '';
-  const pharmName = data.settings.pharmacyName || '오더팜';
+  const pharmName = data.settings.pharmacyName || '파랑새약국';
   const bar = '━'.repeat(32);
   const pad = (s) => s.padStart(Math.floor((32 + s.length) / 2)).padEnd(32);
   const header = `${bar}\n${pad(pharmName)}\n${bar}\n`;
@@ -3649,7 +3649,7 @@ function autoPrint(text) {
 
 /* ── 수동 인쇄 (재인쇄 버튼 클릭 시만 호출) ── */
 function doPrint() {
-  const pharmName = data.settings.pharmacyName || '오더팜';
+  const pharmName = data.settings.pharmacyName || '파랑새약국';
   document.title = pharmName + ' 주문서';
   window.print();
   setTimeout(() => { document.title = pharmName + ' - 디지털 가이드'; }, 1000);
@@ -3759,7 +3759,7 @@ function checkQRValidity() {
      4) UPC Item DB (글로벌 범용)
    ─────────────────────────────────────────────────────────────────── */
 /* Cloudflare Worker 프록시 — CORS 우회용 */
-const PROXY = 'https://pharmacy-proxy.speed0324.workers.dev';
+const PROXY = 'https://pharmacy-proxy-2.speed0324.workers.dev';
 const proxyFetch = (apiUrl, opts={}) =>
   fetch(`${PROXY}/?url=${encodeURIComponent(apiUrl)}`, opts);
 
