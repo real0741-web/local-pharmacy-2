@@ -109,6 +109,22 @@
     padding: 8px 14px; border-radius: 10px;
   }
 </style>
+<!-- Google Translate: 번역 버튼 스타일 정리 -->
+<style>
+  /* 구글 번역 상단 배너(프레임) 숨기기 */
+  .goog-te-banner-frame, .skiptranslate { display: none !important; }
+  body { top: 0 !important; }
+  /* 번역 드롭다운 최소화 */
+  #google_translate_element select {
+    font-size: 13px; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 4px 8px;
+    background: white; cursor: pointer;
+    color: #334155; outline: none;
+  }
+  #google_translate_element .goog-te-gadget-simple {
+    border: none !important; background: transparent !important;
+  }
+</style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
@@ -145,12 +161,31 @@
         <div id="header-tagline" class="text-xs text-slate-500 leading-tight">대기 중에 약사님이 큐레이션한 제품을 둘러보세요</div>
       </div>
     </div>
-    <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
-      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-      현재 약사님 상담 가능
+    <div class="flex items-center gap-3">
+      <!-- 언어 선택 (Google Translate) — 고객용 -->
+      <div id="google_translate_element" class="shrink-0"></div>
+      <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        현재 약사님 상담 가능
+      </div>
     </div>
   </div>
 </header>
+
+<!-- Google Translate 초기화 스크립트 -->
+<script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement({
+      pageLanguage: 'ko',
+      includedLanguages: 'ko,en,vi',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+      autoDisplay: false,
+    }, 'google_translate_element');
+  }
+</script>
+<script type="text/javascript"
+  src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+</script>
 
 <!-- ============ 인트로 배너 ============ -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
@@ -1142,7 +1177,7 @@
 
       <!-- 제품명 검색 행 -->
       <div class="flex gap-2">
-        <input id="drug-name-input" type="text" placeholder="제품명 검색 (예: 타이레놀, 락토핏, 박카스)"
+        <input id="drug-name-input" type="text" placeholder="제품명 또는 증상으로 검색해보세요. (예: 타이레놀, 진통)"
                class="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-teal-500"
                onkeydown="if(event.key==='Enter') searchProductByName()" />
         <button onclick="searchProductByName()" class="px-3 py-2 rounded-lg text-sm font-semibold btn-secondary shrink-0">검색</button>
@@ -4270,8 +4305,8 @@ function setSearchType(type) {
     }
   });
   const placeholders = {
-    drug:    '의약품 제품명 (예: 타이레놀, 판콜에이)',
-    health:  '건강기능식품 제품명 (예: 락토핏, 루테인)',
+    drug:    '제품명 또는 증상으로 검색해보세요. (예: 타이레놀, 진통)',
+    health:  '건강기능식품 이름 또는 효능 (예: 락토핏, 눈 건강)',
     quasi:   '의약외품 제품명 (예: 박카스, 후시딘)',
     general: '상품명 (예: 덴탈플로스, 립밤, 핫팩)',
   };
