@@ -109,21 +109,16 @@
     padding: 8px 14px; border-radius: 10px;
   }
 </style>
-<!-- Google Translate: 번역 버튼 스타일 정리 -->
+<!-- Google Translate: 번역 엔진 + 커스텀 UI 스타일 -->
 <style>
-  /* 구글 번역 상단 배너(프레임) 숨기기 */
-  .goog-te-banner-frame, .skiptranslate { display: none !important; }
+  /* Google 번역 상단 배너·툴바 완전 숨기기 */
+  .goog-te-banner-frame { display: none !important; }
+  #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
   body { top: 0 !important; }
-  /* 번역 드롭다운 최소화 */
-  #google_translate_element select {
-    font-size: 13px; border: 1px solid #e2e8f0;
-    border-radius: 8px; padding: 4px 8px;
-    background: white; cursor: pointer;
-    color: #334155; outline: none;
-  }
-  #google_translate_element .goog-te-gadget-simple {
-    border: none !important; background: transparent !important;
-  }
+  /* 숨겨진 Google Translate 위젯 컨테이너 */
+  #google_translate_element { display: none !important; }
+  /* 커스텀 언어 드롭다운 */
+  #lang-menu button:hover { background: #f0fdfa; }
 </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
@@ -162,8 +157,32 @@
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <!-- 언어 선택 (Google Translate) — 고객용 -->
-      <div id="google_translate_element" class="shrink-0"></div>
+      <!-- ── 커스텀 언어 선택 드롭다운 ── -->
+      <div class="relative" id="lang-selector-wrapper">
+        <button onclick="toggleLangMenu()"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors select-none">
+          <span id="lang-flag">🇰🇷</span>
+          <span id="lang-label" class="text-xs font-semibold">KO</span>
+          <span class="text-slate-300 text-xs">▾</span>
+        </button>
+        <div id="lang-menu"
+             class="hidden absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50 w-40">
+          <button onclick="setPageLang('ko')"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors">
+            <span class="text-base">🇰🇷</span><span>한국어</span>
+          </button>
+          <button onclick="setPageLang('en')"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors">
+            <span class="text-base">🇺🇸</span><span>English</span>
+          </button>
+          <button onclick="setPageLang('vi')"
+                  class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors">
+            <span class="text-base">🇻🇳</span><span>Tiếng Việt</span>
+          </button>
+        </div>
+      </div>
+      <!-- Google Translate 엔진용 숨김 컨테이너 -->
+      <div id="google_translate_element"></div>
       <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
         현재 약사님 상담 가능
@@ -172,19 +191,60 @@
   </div>
 </header>
 
-<!-- Google Translate 초기화 스크립트 -->
+<!-- Google Translate 초기화 스크립트 (엔진 로드용; 실제 UI는 커스텀 드롭다운) -->
 <script type="text/javascript">
   function googleTranslateElementInit() {
     new google.translate.TranslateElement({
       pageLanguage: 'ko',
       includedLanguages: 'ko,en,vi',
-      layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
       autoDisplay: false,
     }, 'google_translate_element');
   }
 </script>
 <script type="text/javascript"
-  src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+</script>
+<!-- 커스텀 언어 선택 JS -->
+<script>
+  // 현재 언어 쿠키 파싱 → 버튼 아이콘/텍스트 업데이트
+  (function() {
+    const m = document.cookie.match(/googtrans=\/ko\/([a-z]+)/);
+    const lang = m ? m[1] : 'ko';
+    const flagEl  = document.getElementById('lang-flag');
+    const labelEl = document.getElementById('lang-label');
+    if (!flagEl || !labelEl) return;
+    const map = { ko: ['🇰🇷','KO'], en: ['🇺🇸','EN'], vi: ['🇻🇳','VI'] };
+    const [flag, label] = map[lang] || map.ko;
+    flagEl.textContent  = flag;
+    labelEl.textContent = label;
+  })();
+
+  function toggleLangMenu() {
+    const menu = document.getElementById('lang-menu');
+    if (menu) menu.classList.toggle('hidden');
+  }
+
+  // 외부 클릭 시 메뉴 닫기
+  document.addEventListener('click', function(e) {
+    const w = document.getElementById('lang-selector-wrapper');
+    if (w && !w.contains(e.target)) {
+      const m = document.getElementById('lang-menu');
+      if (m) m.classList.add('hidden');
+    }
+  });
+
+  function setPageLang(lang) {
+    const domain = window.location.hostname;
+    if (lang === 'ko') {
+      // 쿠키 삭제 → 원문(한국어)으로 복원
+      document.cookie = `googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${domain}`;
+      document.cookie = `googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    } else {
+      document.cookie = `googtrans=/ko/${lang}; path=/; domain=${domain}`;
+      document.cookie = `googtrans=/ko/${lang}; path=/`;
+    }
+    window.location.reload();
+  }
 </script>
 
 <!-- ============ 인트로 배너 ============ -->
@@ -245,7 +305,7 @@
     <div id="normal-product-view">
     <div class="relative mb-4">
       <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">🔍</span>
-      <input id="customer-search" type="search" placeholder="제품명으로 검색... (예: 타이레놀, 비타민)"
+      <input id="customer-search" type="search" placeholder="제품명 또는 증상으로 검색하세요"
              class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
              oninput="renderProducts()" />
     </div>
