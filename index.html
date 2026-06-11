@@ -5180,19 +5180,29 @@ function importSelectedCrawlItems() {
 }
 
 /* ─────────────────────────────────────── */
+// 게시판 base64 페이로드 안전 디코딩
+// (URLSearchParams가 +를 공백으로 바꾼 경우 / URL-safe base64 / 패딩 누락 모두 복원)
+function _decodeBoardPayload(raw) {
+  let s = String(raw).replace(/ /g, '+').replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return JSON.parse(decodeURIComponent(atob(s)));
+}
+
 function checkBoardImportParam() {
-  try {
-    const raw=new URLSearchParams(location.search).get('importDrug');
-    if (!raw) return;
-    history.replaceState(null,'',location.pathname+(location.hash||''));
-    const json=JSON.parse(decodeURIComponent(atob(raw)));
-    if (json?.source==='약품공유게시판'&&json?.drug) _tryBoardImport(json.drug,0);
-  } catch(e) {}
+  const raw = new URLSearchParams(location.search).get('importDrug');
+  if (!raw) return;
+  history.replaceState(null,'',location.pathname+(location.hash||''));
+  let json;
+  try { json = _decodeBoardPayload(raw); }
+  catch(e) { showToast('❌ 게시판 데이터 해석 실패 — 게시판에서 다시 가져와 주세요'); console.error('importDrug decode 실패', e); return; }
+  if (json?.source==='약품공유게시판'&&json?.drug) _tryBoardImport(json.drug,0);
+  else showToast('❌ 게시판 데이터 형식이 올바르지 않습니다');
 }
 
 function _tryBoardImport(drugData, attempt) {
   if (data.categories && data.categories.length > 0) {
-    importFromBoard(drugData);
+    try { importFromBoard(drugData); }
+    catch(e) { showToast('❌ 가져오기 중 오류: ' + e.message); console.error('importFromBoard 실패', e); }
     return;
   }
   if (attempt >= 20) {
@@ -5204,13 +5214,13 @@ function _tryBoardImport(drugData, attempt) {
 
 // 장바구니 일괄 가져오기
 function checkBoardImportDrugsParam() {
-  try {
-    const raw = new URLSearchParams(location.search).get('importDrugs');
-    if (!raw) return;
-    history.replaceState(null, '', location.pathname + (location.hash || ''));
-    const list = JSON.parse(decodeURIComponent(atob(raw)));
-    if (Array.isArray(list) && list.length > 0) _tryBoardImportBatch(list, 0);
-  } catch(e) {}
+  const raw = new URLSearchParams(location.search).get('importDrugs');
+  if (!raw) return;
+  history.replaceState(null, '', location.pathname + (location.hash || ''));
+  let list;
+  try { list = _decodeBoardPayload(raw); }
+  catch(e) { showToast('❌ 게시판 데이터 해석 실패 — 게시판에서 다시 가져와 주세요'); console.error('importDrugs decode 실패', e); return; }
+  if (Array.isArray(list) && list.length > 0) _tryBoardImportBatch(list, 0);
 }
 
 function _tryBoardImportBatch(list, attempt) {
