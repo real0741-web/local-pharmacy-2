@@ -111,10 +111,13 @@
 </style>
 <!-- Google Translate: 번역 엔진 + 커스텀 UI 스타일 -->
 <style>
-  /* Google 번역 상단 배너·툴바 완전 숨기기 */
-  .goog-te-banner-frame { display: none !important; }
+  /* Google 번역 상단 배너·툴바 완전 숨기기 (CSS 레이어) */
+  .goog-te-banner-frame,
+  .goog-te-menu-frame,
+  iframe[class*="goog-te"] { display: none !important; }
   #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
-  body { top: 0 !important; }
+  body { top: 0 !important; margin-top: 0 !important; }
+  body.translated-ltr, body.translated-rtl { top: 0 !important; margin-top: 0 !important; }
   /* 숨겨진 Google Translate 위젯 컨테이너 */
   #google_translate_element { display: none !important; }
   /* 커스텀 언어 드롭다운 */
@@ -245,6 +248,37 @@
     }
     window.location.reload();
   }
+
+  /* ── Google Translate 상단 배너 강제 제거 (MutationObserver) ── */
+  (function() {
+    function hideGTBanner() {
+      // iframe 배너 제거
+      document.querySelectorAll(
+        '.goog-te-banner-frame, .goog-te-menu-frame, iframe[class*="goog-te"]'
+      ).forEach(function(el) {
+        el.parentNode && el.parentNode.removeChild(el);
+      });
+      // body 밀림 초기화
+      if (document.body) {
+        document.body.style.setProperty('top', '0', 'important');
+        document.body.style.setProperty('margin-top', '0', 'important');
+        document.body.style.setProperty('position', 'static', 'important');
+      }
+    }
+
+    // DOM 변화 감지 → 배너가 나타나면 즉시 제거
+    var obs = new MutationObserver(function() { hideGTBanner(); });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+
+    // 초기 로딩 시점 대비 복수 타이밍
+    document.addEventListener('DOMContentLoaded', hideGTBanner);
+    window.addEventListener('load', function() {
+      hideGTBanner();
+      setTimeout(hideGTBanner, 500);
+      setTimeout(hideGTBanner, 1500);
+      setTimeout(hideGTBanner, 3000);
+    });
+  })();
 </script>
 
 <!-- ============ 인트로 배너 ============ -->
